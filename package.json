@@ -1,0 +1,16 @@
+{
+  "name": "seo-backend",
+  "version": "1.0.0",
+  "description": "Backend API for SEO SERP bar",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
+    "express": "^4.19.0",
+    "pg": "^8.11.0"
+  }
+}
