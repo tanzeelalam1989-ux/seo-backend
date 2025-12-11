@@ -14,10 +14,12 @@ const allowedOrigin = process.env.ALLOWED_ORIGIN || "*";
 app.use(cors({ origin: allowedOrigin }));
 app.use(express.json());
 
+// Simple health check
 app.get("/", (req, res) => {
   res.json({ status: "ok", message: "SEO Backend running" });
 });
 
+// Main metrics endpoint
 app.get("/metrics", async (req, res) => {
   const { domain } = req.query;
   if (!domain) {
