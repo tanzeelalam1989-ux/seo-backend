@@ -1,4 +1,4 @@
-const fetch = require("node-fetch");
+
 
 function estimateRisk({ https, redirects, indexable }) {
   let score = 0;
