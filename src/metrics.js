@@ -1,3 +1,5 @@
+import fetch from "node-fetch";
+
 function estimateRisk({ https, redirects }) {
   if (!https) return "high";
   if (redirects > 2) return "medium";
