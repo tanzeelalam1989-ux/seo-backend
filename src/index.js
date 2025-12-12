@@ -1,6 +1,8 @@
-import express from "express";
-import cors from "cors";
-import { metricsHandler } from "./metrics.js";
+const express = require("express");
+const cors = require("cors");
+require("dotenv").config();
+
+const { metricsHandler } = require("./metrics");
 
 const app = express();
 app.use(cors());
@@ -13,5 +15,3 @@ app.get("/metrics", metricsHandler);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("Server running on port", PORT));
-import { metricsHandler } from "./metrics.js";
-app.get("/metrics", metricsHandler);
