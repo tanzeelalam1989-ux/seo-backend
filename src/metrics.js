@@ -1,14 +1,21 @@
 import fetch from "node-fetch";
 
-function estimateRisk({ https, redirects }) {
-  if (!https) return "high";
-  if (redirects > 2) return "medium";
-  return "low";
+function estimateRisk({ https, redirects, indexable }) {
+  let score = 0;
+  if (!https) score += 3;
+  if (redirects > 1) score += 1;
+  if (indexable === false) score += 2;
+
+  if (score <= 1) return "low";
+  if (score <= 3) return "medium";
+  return "high";
 }
 
 async function getDomainAge(domain) {
+  // NOTE: true WHOIS age is restricted; this is a lightweight estimate
+  // We return null if we can't estimate.
   try {
-    const res = await fetch(`https://${domain}`, { redirect: "follow" });
+    const res = await fetch(`https://${domain}/`, { redirect: "follow" });
     const date = res.headers.get("date");
     if (!date) return null;
 
@@ -24,11 +31,14 @@ async function getDomainAge(domain) {
 
 async function isIndexable(domain) {
   try {
-    const res = await fetch(`https://${domain}`, { redirect: "follow" });
+    const res = await fetch(`https://${domain}/`, { redirect: "follow" });
     if (!res.ok) return false;
 
-    const html = await res.text();
-    if (html.toLowerCase().includes("noindex")) return false;
+    const xRobots = (res.headers.get("x-robots-tag") || "").toLowerCase();
+    if (xRobots.includes("noindex")) return false;
+
+    const html = (await res.text()).toLowerCase();
+    if (html.includes('name="robots"') && html.includes("noindex")) return false;
 
     return true;
   } catch {
@@ -36,42 +46,51 @@ async function isIndexable(domain) {
   }
 }
 
-export default async function handler(req, res) {
-  const domain = req.query.domain;
-  if (!domain) {
-    return res.status(400).json({ error: "Domain required" });
-  }
-
-  // Your existing logic (simulated authority)
-  const authority_score = Math.floor(Math.random() * 40) + 20;
-  const traffic_bucket = authority_score > 50 ? "high" : "low";
-  const keywords_bucket = authority_score > 50 ? "2k-10k" : "100-500";
-  const value_bucket = authority_score > 50 ? "low" : "very_low";
-
-  // NEW FREE METRICS
-  const domain_age = await getDomainAge(domain);
-  const indexable = await isIndexable(domain);
-
-  let redirects = 0;
-  let https = true;
-
+// ✅ Express handler export (works with app.get("/metrics", ...))
+export async function metricsHandler(req, res) {
   try {
-    const r = await fetch(`https://${domain}`, { redirect: "manual" });
-    redirects = r.status >= 300 && r.status < 400 ? 1 : 0;
-  } catch {
-    https = false;
+    const domainRaw = req.query.domain;
+    if (!domainRaw) return res.status(400).json({ error: "domain is required" });
+
+    const domain = String(domainRaw)
+      .replace(/^https?:\/\//i, "")
+      .split("/")[0]
+      .replace(/^www\./i, "");
+
+    // ✅ keep your existing metric logic (still fast)
+    const authority_score = Math.floor(Math.random() * 40) + 20;
+    const traffic_bucket = authority_score > 50 ? "high" : "low";
+    const keywords_bucket = authority_score > 50 ? "2k-10k" : "100-500";
+    const value_bucket = authority_score > 50 ? "low" : "very_low";
+
+    // ✅ new free metrics (safe: if they fail, we still return base data)
+    const [domain_age, indexable] = await Promise.all([
+      getDomainAge(domain),
+      isIndexable(domain),
+    ]);
+
+    let redirects = 0;
+    let https = true;
+    try {
+      const r = await fetch(`https://${domain}/`, { redirect: "manual" });
+      redirects = r.status >= 300 && r.status < 400 ? 1 : 0;
+    } catch {
+      https = false;
+    }
+
+    const risk = estimateRisk({ https, redirects, indexable });
+
+    return res.json({
+      domain,
+      authority_score,
+      traffic_bucket,
+      keywords_bucket,
+      value_bucket,
+      domain_age,
+      indexable,
+      risk
+    });
+  } catch (e) {
+    return res.status(500).json({ error: "Failed to fetch metrics" });
   }
-
-  const risk = estimateRisk({ https, redirects });
-
-  return res.json({
-    domain,
-    authority_score,
-    traffic_bucket,
-    keywords_bucket,
-    value_bucket,
-    domain_age,
-    indexable,
-    risk
-  });
 }
