@@ -1,4 +1,4 @@
-import fetch from "node-fetch";
+const fetch = require("node-fetch");
 
 function estimateRisk({ https, redirects, indexable }) {
   let score = 0;
@@ -12,8 +12,6 @@ function estimateRisk({ https, redirects, indexable }) {
 }
 
 async function getDomainAge(domain) {
-  // NOTE: true WHOIS age is restricted; this is a lightweight estimate
-  // We return null if we can't estimate.
   try {
     const res = await fetch(`https://${domain}/`, { redirect: "follow" });
     const date = res.headers.get("date");
@@ -46,8 +44,7 @@ async function isIndexable(domain) {
   }
 }
 
-// ✅ Express handler export (works with app.get("/metrics", ...))
-export async function metricsHandler(req, res) {
+async function metricsHandler(req, res) {
   try {
     const domainRaw = req.query.domain;
     if (!domainRaw) return res.status(400).json({ error: "domain is required" });
@@ -57,20 +54,20 @@ export async function metricsHandler(req, res) {
       .split("/")[0]
       .replace(/^www\./i, "");
 
-    // ✅ keep your existing metric logic (still fast)
+    // Existing “demo” metrics
     const authority_score = Math.floor(Math.random() * 40) + 20;
     const traffic_bucket = authority_score > 50 ? "high" : "low";
     const keywords_bucket = authority_score > 50 ? "2k-10k" : "100-500";
     const value_bucket = authority_score > 50 ? "low" : "very_low";
 
-    // ✅ new free metrics (safe: if they fail, we still return base data)
     const [domain_age, indexable] = await Promise.all([
       getDomainAge(domain),
-      isIndexable(domain),
+      isIndexable(domain)
     ]);
 
     let redirects = 0;
     let https = true;
+
     try {
       const r = await fetch(`https://${domain}/`, { redirect: "manual" });
       redirects = r.status >= 300 && r.status < 400 ? 1 : 0;
@@ -94,3 +91,5 @@ export async function metricsHandler(req, res) {
     return res.status(500).json({ error: "Failed to fetch metrics" });
   }
 }
+
+module.exports = { metricsHandler };
